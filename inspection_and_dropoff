@@ -1,0 +1,964 @@
+
+If Flow_LT_TP_Inspect=0 then
+	Flow_LT_TP_Inspect:=1;
+	end_if;
+
+IF UR_DO03 then//signal from ur to feed back
+	UR_DI00:= UR_DO00;
+	UR_DI01:= UR_DO01;
+	end_if;
+for j:=0 to 16 do
+	if Reset_Leak_Failures[j] then
+		Leaking_vis[j]:=0;
+		if j<8 then
+			Part_Leaking_Top_100_Total[j]:=0;
+			for k:=0 to 500 do
+				if j=0 then
+					Part_Leaking_Top_100_1[k]:=0;
+				elsif j=1 then
+					Part_Leaking_Top_100_2[k]:=0;
+				elsif j=2 then
+					Part_Leaking_Top_100_3[k]:=0;
+				elsif j=3 then
+					Part_Leaking_Top_100_4[k]:=0;
+				elsif j=4 then
+					Part_Leaking_Top_100_5[k]:=0;
+				elsif j=5 then
+					Part_Leaking_Top_100_6[k]:=0;
+				elsif j=6 then
+					Part_Leaking_Top_100_7[k]:=0;
+				elsif j=7 then
+					Part_Leaking_Top_100_8[k]:=0;
+					end_if;
+				end_for;
+		else
+			Part_Leaking_Bottom_100_Total[j-8]:=0;
+			for k:=0 to 500 do
+				if j=8 then
+					Part_Leaking_Bottom_100_1[k]:=0;
+				elsif j=9 then
+					Part_Leaking_Bottom_100_2[k]:=0;
+				elsif j=10 then
+					Part_Leaking_Bottom_100_3[k]:=0;
+				elsif j=11 then
+					Part_Leaking_Bottom_100_4[k]:=0;
+				elsif j=12 then
+					Part_Leaking_Bottom_100_5[k]:=0;
+				elsif j=13 then
+					Part_Leaking_Bottom_100_6[k]:=0;
+				elsif j=14 then
+					Part_Leaking_Bottom_100_7[k]:=0;
+				elsif j=15 then
+					Part_Leaking_Bottom_100_8[k]:=0;
+					end_if;
+				end_for;
+			end_if;
+		end_if;
+	end_for;
+
+if Current_cycle_count=0 then
+	Failure_Count[0]:=0;
+	Failure_Count[1]:=0;
+	Failure_Count[2]:=0;
+	Failure_Count[3]:=0;
+	Failure_Count[4]:=0;
+	Failure_Count[5]:=0;
+	Failure_Count[6]:=0;
+	Failure_Count[7]:=0;
+	Part_Leak_Total_1:=0;
+	Part_Leak_Total_2:=0;
+	Part_Leak_Total_3:=0;
+	Part_Leak_Total_4:=0;
+	Part_Leak_Total_5:=0;
+	Part_Leak_Total_6:=0;
+	Part_Leak_Total_7:=0;
+	Part_Leak_Total_8:=0;
+	Camera_Reject_1_total:=0;
+	Camera_Reject_2_total:=0;
+	Camera_Reject_3_total:=0;
+	Camera_Reject_4_total:=0;
+	Camera_Reject_5_total:=0;
+	Camera_Reject_6_total:=0;
+	Camera_Reject_7_total:=0;
+	Camera_Reject_8_total:=0;
+	end_if;
+
+for q:=0 to 14 do
+	If Cavity_Update_Timer.DN and not Has_Changed then
+		Has_Changed:=1;;
+		end_if;
+	if not HMI_Valve_Control then//This is to reset the air valves that are on, to what they were before manual control was initiated.
+		UR_Air[q]:=0;
+		LT_Air[q]:=0;
+		Yam_Air[q]:=0;
+		end_if;
+	end_for;
+If Clear_Missed_picks then
+	UR_Missed_Pick_top:=0;
+	UR_Missed_Pick_Bottom:=0;
+	end_if;
+	
+IF UR_DO02 or Reset_UR_State then//Reset this program if signal received from ur or hmi button press.
+	I:=0;
+	j:=0;
+	k:=0;
+	if Picking_Top then
+		LT_TP_Testing_Complete:=0;
+		UR_DI04:=0;//UR_DI05 will be signal from LT that parts on Top are ready for pickup
+		end_if;
+	Picking_Top:=0;
+	if Picking_Bottom then
+		LT_BTM_Testing_Complete:=0;
+		UR_DI05:=0;//UR_DI06 will be signal from LT that parts on Bottom are ready for pickup
+		end_if;
+	Picking_Bottom:=0;
+	UR_CAV_VAC_1:=0;
+	UR_CAV_VAC_2:=0;
+	UR_CAV_VAC_3:=0;
+	UR_CAV_VAC_4:=0;
+	UR_CAV_VAC_5:=0;
+	UR_CAV_VAC_6:=0;
+	UR_CAV_VAC_7:=0;
+	UR_CAV_VAC_8:=0;
+	Flow_LT_TP_Inspect:=1;
+	Cam_1_DI01:=0;
+	Cam_2_DI01:=0;
+	end_if;
+
+Case Flow_LT_TP_Inspect of
+
+1://Let UR know parts are good to pick up
+If LT_TP_Testing_Complete and (LT_TP_CYL_1_UP) AND (LT_TP_CYL_2_UP) AND FC_DO_118 then
+	UR_DI04:=1;//UR_DI05 will be signal from LT that parts on Top are ready for pickup
+	Picking_Top:=1;
+	end_if;
+If  LT_BTM_Testing_Complete and (LT_BTM_CYL_1_UP) AND (LT_BTM_CYL_2_UP) AND FC_DO_114 then
+	UR_DI05:=1;//UR_DI06 will be signal from LT that parts on Bottom are ready for pickup
+	Picking_Bottom:=1;
+	end_if;
+if (LT_BTM_Testing_Complete and UR_DI05) or (LT_TP_Testing_Complete and UR_DI04 ) then
+	Flow_LT_TP_Inspect:=2;
+	I:=0;
+	end_if;
+
+2://UR is picking parts up
+if UR_DO05 then//Signal to PLC that the ur is in place to pick parts from leak test.
+	UR_CAV_VAC_1:=1;
+	UR_CAV_VAC_2:=1;
+	UR_CAV_VAC_3:=1;
+	UR_CAV_VAC_4:=1;
+	UR_CAV_VAC_5:=1;
+	UR_CAV_VAC_6:=1;
+	UR_CAV_VAC_7:=1;
+	UR_CAV_VAC_8:=1;
+	Flow_LT_TP_Inspect:=3;
+	end_if;
+
+3://parts have been picked. Check for missed pick. 
+
+Rejects_Dropped:=0;
+
+if UR_DO00 and Picking_Top then//DOo0 must be kept on until the UR is clear of the LT to prevent collisions and robot crushing
+	if (not (UR_VAC_SENSOR_1 and UR_VAC_SENSOR_2 and UR_VAC_SENSOR_3 and UR_VAC_SENSOR_4 and UR_VAC_SENSOR_5 and UR_VAC_SENSOR_6 and UR_VAC_SENSOR_7 and UR_VAC_SENSOR_8 and dummy_stop_ur_vac)) then
+		UR_Missed_Pick_top:=1;
+		end_if;
+	LT_TP_Testing_Complete:=0;
+	Top_Testing:=0;
+	UR_DI04:=0;
+	end_if;
+if UR_DO01 and Picking_Bottom then//DOo1 must be kept on until the UR is clear of the LT to prevent collisions and robot crushing
+	if (not (UR_VAC_SENSOR_1 and UR_VAC_SENSOR_2 and UR_VAC_SENSOR_3 and UR_VAC_SENSOR_4 and UR_VAC_SENSOR_5 and UR_VAC_SENSOR_6 and UR_VAC_SENSOR_7 and UR_VAC_SENSOR_8 and dummy_stop_ur_vac)) then
+		UR_Missed_Pick_Bottom:=1;
+		end_if;
+	Bottom_Testing:=0;
+	LT_BTM_Testing_Complete:=0;
+	UR_DI05:=0;
+	end_if;
+if ((not UR_DI04) and Picking_Top) or ((not UR_DI05) and Picking_Bottom) then
+	Flow_LT_TP_Inspect:=4;
+	Current_cycle_count:=Current_cycle_count+1;
+	end_if;
+4://take pictures
+
+if UR_DO06 then//DO06 will be the signal to the PLC that the UR is in position to take a picture
+	UR_DI03:=0;
+	Cam_1_DI01:=1;//Trigger Camera
+	Cam_2_DI01:=1;
+	end_if;
+if Cam_2_DO02 then
+	Cam_2_done:=1;
+	if I<4 then
+		Cam_1_Result[3-I]:=Cam_2_DO01;//invert the picture tracking order for the one side of the EOAT. This is the side that takes pictures in order 8,7,6,5
+		end_if;
+	end_if;
+if Cam_1_DO02 then
+	cam_1_done:=1;
+	Cam_2_Result[I]:=Cam_1_DO01;//this side takes picutre for cavity 1,2.3,4
+	end_if;//Also you may notice that cam 2 writes its results to cam 1. This occured when cameras were changed to cognex. inputs got flipped and it's easier to change code than switch cables possibly having to realign cams
+if Cam_2_done and cam_1_done then
+	Cam_1_DI01:=0;
+	Cam_2_DI01:=0;
+	cam_1_done:=0;
+	Cam_2_done:=0;
+	Flow_LT_TP_Inspect:=5;
+	end_if;
+5://results recorded and overall pass/fail found
+if (not (Cam_2_DO02 or Cam_1_DO02)) and (I<4) and (not UR_DO06) then
+	UR_DI03:=1;
+	I:=I+1;
+	Flow_LT_TP_Inspect:=4;
+	end_if;
+if ((not (Cam_2_DO02 or Cam_1_DO02)) and (I=4) and (not UR_DO05)) and Picking_Top then//For determining the result of leak test and camera checks for top leak tested parts.
+	Inspect_1_Result[0]:=(Cam_1_Result[0] and (TP_Sense_1_Acc<Leak_Threshold and LT_TP_Sense_1_Measure[0]>30) and Camera_enable[0]) or ((TP_Sense_1_Acc<Leak_Threshold and LT_TP_Sense_1_Measure[0]>30) and not Camera_enable[0]);
+	Inspect_1_Result[1]:=(Cam_1_Result[1] and (TP_Sense_2_Acc<Leak_Threshold and LT_TP_Sense_2_Measure[0]>30) and Camera_enable[1]) or ((TP_Sense_2_Acc<Leak_Threshold and LT_TP_Sense_2_Measure[0]>30) and not Camera_enable[1]);
+	Inspect_1_Result[2]:=(Cam_1_Result[2] and (TP_Sense_3_Acc<Leak_Threshold and LT_TP_Sense_3_Measure[0]>30) and Camera_enable[2]) or ((TP_Sense_3_Acc<Leak_Threshold and LT_TP_Sense_3_Measure[0]>30) and not Camera_enable[2]);
+	Inspect_1_Result[3]:=(Cam_1_Result[3] and (TP_Sense_4_Acc<Leak_Threshold and LT_TP_Sense_4_Measure[0]>30) and Camera_enable[3]) or ((TP_Sense_4_Acc<Leak_Threshold and LT_TP_Sense_4_Measure[0]>30) and not Camera_enable[3]);
+	Inspect_1_Result[4]:=(Cam_2_Result[0] and (TP_Sense_5_Acc<Leak_Threshold and LT_TP_Sense_5_Measure[0]>30) and Camera_enable[4]) or ((TP_Sense_5_Acc<Leak_Threshold and LT_TP_Sense_5_Measure[0]>30) and not Camera_enable[4]);
+	Inspect_1_Result[5]:=(Cam_2_Result[1] and (TP_Sense_6_Acc<Leak_Threshold and LT_TP_Sense_6_Measure[0]>30) and Camera_enable[5]) or ((TP_Sense_6_Acc<Leak_Threshold and LT_TP_Sense_6_Measure[0]>30) and not Camera_enable[5]);
+	Inspect_1_Result[6]:=(Cam_2_Result[2] and (TP_Sense_7_Acc<Leak_Threshold and LT_TP_Sense_7_Measure[0]>30) and Camera_enable[6]) or ((TP_Sense_7_Acc<Leak_Threshold and LT_TP_Sense_7_Measure[0]>30) and not Camera_enable[6]);
+	Inspect_1_Result[7]:=(Cam_2_Result[3] and (TP_Sense_8_Acc<Leak_Threshold and LT_TP_Sense_8_Measure[0]>30) and Camera_enable[7]) or ((TP_Sense_8_Acc<Leak_Threshold and LT_TP_Sense_8_Measure[0]>30) and not Camera_enable[7]);
+	if (Inspect_1_Result[1] and Cavity_Enabled.0 or not Cavity_Enabled.0) and (Inspect_1_Result[2] and Cavity_Enabled.1 or not Cavity_Enabled.1) and (Inspect_1_Result[3] and Cavity_Enabled.2 or not Cavity_Enabled.2) and (Inspect_1_Result[4] and Cavity_Enabled.3 or not Cavity_Enabled.3) and Quality_Shot_Bit then
+		First_4_true:=1;
+	else
+		First_4_true:=0;
+		end_if;
+	if (Inspect_1_Result[5] and Cavity_Enabled.4 or not Cavity_Enabled.4) and (Inspect_1_Result[6] and Cavity_Enabled.5 or not Cavity_Enabled.5) and (Inspect_1_Result[7] and Cavity_Enabled.6 or not Cavity_Enabled.6) and (Inspect_1_Result[8] and Cavity_Enabled.7 or not Cavity_Enabled.7) and Quality_Shot_Bit then
+		Second_4_true:=1;
+	else
+		Second_4_true:=0;
+		end_if;
+//	if First_4_true and Second_4_true then
+//		UR_DI07:=1;
+//		Second_4_true:=0;
+//		First_4_true:=0;
+//		Quality_Shot_Bit:=0;
+//		Flow_LT_TP_Inspect:=9;
+//		end_if;
+	if not UR_DI07 then
+		UR_DI03:=1;
+		Second_4_true:=0;
+		First_4_true:=0;
+		Flow_LT_TP_Inspect:=6;
+		for k:=0 to 7 by 1 do
+			if not Inspect_1_Result[k] then
+				Failure_Count[k]:= Failure_Count[k] + 1;
+				end_if;
+			end_for;
+		end_if;
+	end_if;
+
+if ((not (Cam_2_DO02 or Cam_1_DO02)) and (I=4) and (not UR_DO05)) and Picking_Bottom then//For determining the result of leak test and camera checks for bottom leak tested parts.
+	Inspect_2_Result[0]:=(Cam_1_Result[0] and (BTM_Sense_1_Acc<Leak_Threshold and LT_BTM_Sense_1_Measure[0]>30) and Camera_enable[0]) or ((BTM_Sense_1_Acc<Leak_Threshold and LT_BTM_Sense_1_Measure[0]>30) and not Camera_enable[0]);
+	Inspect_2_Result[1]:=(Cam_1_Result[1] and (BTM_Sense_2_Acc<Leak_Threshold and LT_BTM_Sense_2_Measure[0]>30) and Camera_enable[1]) or ((BTM_Sense_2_Acc<Leak_Threshold and LT_BTM_Sense_2_Measure[0]>30) and not Camera_enable[1]);
+	Inspect_2_Result[2]:=(Cam_1_Result[2] and (BTM_Sense_3_Acc<Leak_Threshold and LT_BTM_Sense_3_Measure[0]>30) and Camera_enable[2]) or ((BTM_Sense_3_Acc<Leak_Threshold and LT_BTM_Sense_3_Measure[0]>30) and not Camera_enable[2]);
+	Inspect_2_Result[3]:=(Cam_1_Result[3] and (BTM_Sense_4_Acc<Leak_Threshold and LT_BTM_Sense_4_Measure[0]>30) and Camera_enable[3]) or ((BTM_Sense_4_Acc<Leak_Threshold and LT_BTM_Sense_4_Measure[0]>30) and not Camera_enable[3]);
+	Inspect_2_Result[4]:=(Cam_2_Result[0] and (BTM_Sense_5_Acc<Leak_Threshold and LT_BTM_Sense_5_Measure[0]>30) and Camera_enable[4]) or ((BTM_Sense_5_Acc<Leak_Threshold and LT_BTM_Sense_5_Measure[0]>30) and not Camera_enable[4]);
+	Inspect_2_Result[5]:=(Cam_2_Result[1] and (BTM_Sense_6_Acc<Leak_Threshold and LT_BTM_Sense_6_Measure[0]>30) and Camera_enable[5]) or ((BTM_Sense_6_Acc<Leak_Threshold and LT_BTM_Sense_6_Measure[0]>30) and not Camera_enable[5]);
+	Inspect_2_Result[6]:=(Cam_2_Result[2] and (BTM_Sense_7_Acc<Leak_Threshold and LT_BTM_Sense_7_Measure[0]>30) and Camera_enable[6]) or ((BTM_Sense_7_Acc<Leak_Threshold and LT_BTM_Sense_7_Measure[0]>30) and not Camera_enable[6]);
+	Inspect_2_Result[7]:=(Cam_2_Result[3] and (BTM_Sense_8_Acc<Leak_Threshold and LT_BTM_Sense_8_Measure[0]>30) and Camera_enable[7]) or ((BTM_Sense_8_Acc<Leak_Threshold and LT_BTM_Sense_8_Measure[0]>30) and not Camera_enable[7]);
+	if (Inspect_2_Result[1] and Cavity_Enabled.0 or not Cavity_Enabled.0) and (Inspect_2_Result[2] and Cavity_Enabled.1 or not Cavity_Enabled.1) and (Inspect_2_Result[3] and Cavity_Enabled.2 or not Cavity_Enabled.2) and (Inspect_2_Result[4] and Cavity_Enabled.3 or not Cavity_Enabled.3) and Quality_Shot_Bit then
+		First_4_true:=1;
+	else
+		First_4_true:=0;
+		end_if;
+	if (Inspect_2_Result[5] and Cavity_Enabled.4 or not Cavity_Enabled.4) and (Inspect_2_Result[6] and Cavity_Enabled.5 or not Cavity_Enabled.5) and (Inspect_2_Result[7] and Cavity_Enabled.6 or not Cavity_Enabled.6) and (Inspect_2_Result[8] and Cavity_Enabled.7 or not Cavity_Enabled.7) and Quality_Shot_Bit then
+		Second_4_true:=1;
+	else
+		Second_4_true:=0;
+		end_if;
+//	if First_4_true and Second_4_true then
+//		UR_DI07:=1;
+//		Second_4_true:=0;
+//		First_4_true:=0;
+//		Quality_Shot_Bit:=0;
+//		Flow_LT_TP_Inspect:=10;
+//		end_if;
+	if not UR_DI07 then
+		UR_DI03:=1;
+		Second_4_true:=0;
+		First_4_true:=0;
+		Flow_LT_TP_Inspect:=6;
+		for k:=0 to 7 by 1 do
+			if not Inspect_2_Result[k] then
+				Failure_Count[k]:= Failure_Count[k] + 1;
+				end_if;
+			end_for;
+		end_if;
+	end_if;
+
+6://Drop rejects 
+j:=0;
+k:=0;
+UR_DI02:=0;
+
+if UR_DO07 and not Rejects_Dropped then//DO07 is signal that Ur is above a dropsite. The first dropsite being the reject bin
+	UR_DI03:=0;
+	UR_CAV_VAC_1:=not Cam_1_Result[0] or ((Inspect_1_Result[0] and Picking_Top) or (Inspect_2_Result[0] and Picking_Bottom));
+	UR_CAV_VAC_2:=not Cam_1_Result[1] or ((Inspect_1_Result[1] and Picking_Top) or (Inspect_2_Result[1] and Picking_Bottom));
+	UR_CAV_VAC_7:=not Cam_2_Result[2] or ((Inspect_1_Result[6] and Picking_Top) or (Inspect_2_Result[6] and Picking_Bottom));
+	UR_CAV_VAC_8:=not Cam_2_Result[3] or ((Inspect_1_Result[7] and Picking_Top) or (Inspect_2_Result[7] and Picking_Bottom));
+	UR_CAV_VAC_5:=not Cam_2_Result[0] or ((Inspect_1_Result[4] and Picking_Top) or (Inspect_2_Result[4] and Picking_Bottom));
+	UR_CAV_VAC_6:=not Cam_2_Result[1] or ((Inspect_1_Result[5] and Picking_Top) or (Inspect_2_Result[5] and Picking_Bottom));
+	UR_CAV_VAC_3:=not Cam_1_Result[2] or ((Inspect_1_Result[2] and Picking_Top) or (Inspect_2_Result[2] and Picking_Bottom));
+	UR_CAV_VAC_4:=not Cam_1_Result[3] or ((Inspect_1_Result[3] and Picking_Top) or (Inspect_2_Result[3] and Picking_Bottom));
+	Rejects_Dropped:=1;
+	Last_100_total_1:=0;
+	Last_100_total_2:=0;
+	Last_100_total_3:=0;
+	Last_100_total_4:=0;
+	Last_100_total_5:=0;
+	Last_100_total_6:=0;
+	Last_100_total_7:=0;
+	Last_100_total_8:=0;
+	Part_Leaked_total_1:=0;
+	Part_Leaked_total_2:=0;
+	Part_Leaked_total_3:=0;
+	Part_Leaked_total_4:=0;
+	Part_Leaked_total_5:=0;
+	Part_Leaked_total_6:=0;
+	Part_Leaked_total_7:=0;
+	Part_Leaked_total_8:=0;
+	Camera_Reject_total_1:=0;
+	Camera_Reject_total_2:=0;
+	Camera_Reject_total_3:=0;
+	Camera_Reject_total_4:=0;
+	Camera_Reject_total_5:=0;
+	Camera_Reject_total_6:=0;
+	Camera_Reject_total_7:=0;
+	Camera_Reject_total_8:=0;	
+	for k:=0 to 7 do
+		Part_Leaking_Top_100_Total[k]:=0;
+		Part_Leaking_Bottom_100_Total[k]:=0;
+		end_for;
+
+	for j:=0 to 99 by 1 do//Track last 100 shots to see how each cavity is doing.
+		Last_100_shots_1[100-j]:=Last_100_shots_1[99-j];
+		Last_100_shots_2[100-j]:=Last_100_shots_2[99-j];
+		Last_100_shots_3[100-j]:=Last_100_shots_3[99-j];
+		Last_100_shots_4[100-j]:=Last_100_shots_4[99-j];
+		Last_100_shots_5[100-j]:=Last_100_shots_5[99-j];
+		Last_100_shots_6[100-j]:=Last_100_shots_6[99-j];
+		Last_100_shots_7[100-j]:=Last_100_shots_7[99-j];
+		Last_100_shots_8[100-j]:=Last_100_shots_8[99-j];
+		Cavity_1_100_Sense_ACC[100-j]:=Cavity_1_100_Sense_ACC[99-j];
+		Cavity_2_100_Sense_ACC[100-j]:=Cavity_2_100_Sense_ACC[99-j];
+		Cavity_3_100_Sense_ACC[100-j]:=Cavity_3_100_Sense_ACC[99-j];
+		Cavity_4_100_Sense_ACC[100-j]:=Cavity_4_100_Sense_ACC[99-j];
+		Cavity_5_100_Sense_ACC[100-j]:=Cavity_5_100_Sense_ACC[99-j];
+		Cavity_6_100_Sense_ACC[100-j]:=Cavity_6_100_Sense_ACC[99-j];
+		Cavity_7_100_Sense_ACC[100-j]:=Cavity_7_100_Sense_ACC[99-j];
+		Cavity_8_100_Sense_ACC[100-j]:=Cavity_8_100_Sense_ACC[99-j];
+		Cavity_1_100_Measure[100-j]:=Cavity_1_100_Measure[99-j];
+		Cavity_2_100_Measure[100-j]:=Cavity_2_100_Measure[99-j];
+		Cavity_3_100_Measure[100-j]:=Cavity_3_100_Measure[99-j];
+		Cavity_4_100_Measure[100-j]:=Cavity_4_100_Measure[99-j];
+		Cavity_5_100_Measure[100-j]:=Cavity_5_100_Measure[99-j];
+		Cavity_6_100_Measure[100-j]:=Cavity_6_100_Measure[99-j];
+		Cavity_7_100_Measure[100-j]:=Cavity_7_100_Measure[99-j];
+		Cavity_8_100_Measure[100-j]:=Cavity_8_100_Measure[99-j];
+		Camera_Reject_100_1[100-j]:=Camera_Reject_100_1[99-j];
+		Camera_Reject_100_2[100-j]:=Camera_Reject_100_2[99-j];
+		Camera_Reject_100_3[100-j]:=Camera_Reject_100_3[99-j];
+		Camera_Reject_100_4[100-j]:=Camera_Reject_100_4[99-j];
+		Camera_Reject_100_5[100-j]:=Camera_Reject_100_5[99-j];
+		Camera_Reject_100_6[100-j]:=Camera_Reject_100_6[99-j];
+		Camera_Reject_100_7[100-j]:=Camera_Reject_100_7[99-j];
+		Camera_Reject_100_8[100-j]:=Camera_Reject_100_8[99-j];
+		Part_Leaking_100_1[100-j]:=	Part_Leaking_100_1[99-j];
+		Part_Leaking_100_2[100-j]:=	Part_Leaking_100_2[99-j];
+		Part_Leaking_100_3[100-j]:=	Part_Leaking_100_3[99-j];
+		Part_Leaking_100_4[100-j]:=	Part_Leaking_100_4[99-j];
+		Part_Leaking_100_5[100-j]:=	Part_Leaking_100_5[99-j];
+		Part_Leaking_100_6[100-j]:=	Part_Leaking_100_6[99-j];
+		Part_Leaking_100_7[100-j]:=	Part_Leaking_100_7[99-j];
+		Part_Leaking_100_8[100-j]:=	Part_Leaking_100_8[99-j];
+		end_for;
+
+	for j:=0 to 1000 by 1 do
+		k:=trunc(j/2);//(Y-Trunc(X/Y)*Y) = MOD(X,Y) or X%Y. Can't believe studio 5000 doesn't support modulo function in structured text. Trunc function removes any value less than 1. So the decimal point 
+		if Picking_Top then
+			Part_Leaking_Top_100_1[500-k+1]:=Part_Leaking_Top_100_1[499-k+1];
+			Part_Leaking_Top_100_2[500-k+1]:=Part_Leaking_Top_100_2[499-k+1];
+			Part_Leaking_Top_100_3[500-k+1]:=Part_Leaking_Top_100_3[499-k+1];
+			Part_Leaking_Top_100_4[500-k+1]:=Part_Leaking_Top_100_4[499-k+1];
+			Part_Leaking_Top_100_5[500-k+1]:=Part_Leaking_Top_100_5[499-k+1];
+			Part_Leaking_Top_100_6[500-k+1]:=Part_Leaking_Top_100_6[499-k+1];
+			Part_Leaking_Top_100_7[500-k+1]:=Part_Leaking_Top_100_7[499-k+1];
+			Part_Leaking_Top_100_8[500-k+1]:=Part_Leaking_Top_100_8[499-k+1];
+			end_if;
+		if Picking_Bottom then
+			Part_Leaking_Bottom_100_1[500-k+1]:=Part_Leaking_Bottom_100_1[499-k+1];
+			Part_Leaking_Bottom_100_2[500-k+1]:=Part_Leaking_Bottom_100_2[499-k+1];
+			Part_Leaking_Bottom_100_3[500-k+1]:=Part_Leaking_Bottom_100_3[499-k+1];
+			Part_Leaking_Bottom_100_4[500-k+1]:=Part_Leaking_Bottom_100_4[499-k+1];
+			Part_Leaking_Bottom_100_5[500-k+1]:=Part_Leaking_Bottom_100_5[499-k+1];
+			Part_Leaking_Bottom_100_6[500-k+1]:=Part_Leaking_Bottom_100_6[499-k+1];
+			Part_Leaking_Bottom_100_7[500-k+1]:=Part_Leaking_Bottom_100_7[499-k+1];
+			Part_Leaking_Bottom_100_8[500-k+1]:=Part_Leaking_Bottom_100_8[499-k+1];
+			end_if;
+		end_for;
+
+	IF Picking_Top then
+		Cavity_1_100_Measure[0]:= LT_TP_Sense_1_Measure[0];
+		Cavity_2_100_Measure[0]:= LT_TP_Sense_2_Measure[0];
+		Cavity_3_100_Measure[0]:= LT_TP_Sense_3_Measure[0];
+		Cavity_4_100_Measure[0]:= LT_TP_Sense_4_Measure[0];
+		Cavity_5_100_Measure[0]:= LT_TP_Sense_5_Measure[0];
+		Cavity_6_100_Measure[0]:= LT_TP_Sense_6_Measure[0];
+		Cavity_7_100_Measure[0]:= LT_TP_Sense_7_Measure[0];
+		Cavity_8_100_Measure[0]:= LT_TP_Sense_8_Measure[0];
+		Cavity_1_100_Sense_ACC[0]:=TP_Sense_1_Acc;
+		Cavity_2_100_Sense_ACC[0]:=TP_Sense_2_Acc;
+		Cavity_3_100_Sense_ACC[0]:=TP_Sense_3_Acc;
+		Cavity_4_100_Sense_ACC[0]:=TP_Sense_4_Acc;
+		Cavity_5_100_Sense_ACC[0]:=TP_Sense_5_Acc;
+		Cavity_6_100_Sense_ACC[0]:=TP_Sense_6_Acc;
+		Cavity_7_100_Sense_ACC[0]:=TP_Sense_7_Acc;
+		Cavity_8_100_Sense_ACC[0]:=TP_Sense_8_Acc;
+	elsif Picking_Bottom then
+		Cavity_1_100_Measure[0]:= LT_BTM_Sense_1_Measure[0];
+		Cavity_2_100_Measure[0]:= LT_BTM_Sense_2_Measure[0];
+		Cavity_3_100_Measure[0]:= LT_BTM_Sense_3_Measure[0];
+		Cavity_4_100_Measure[0]:= LT_BTM_Sense_4_Measure[0];
+		Cavity_5_100_Measure[0]:= LT_BTM_Sense_5_Measure[0];
+		Cavity_6_100_Measure[0]:= LT_BTM_Sense_6_Measure[0];
+		Cavity_7_100_Measure[0]:= LT_BTM_Sense_7_Measure[0];
+		Cavity_8_100_Measure[0]:= LT_BTM_Sense_8_Measure[0];
+		Cavity_1_100_Sense_ACC[0]:=BTM_Sense_1_Acc;
+		Cavity_2_100_Sense_ACC[0]:=BTM_Sense_2_Acc;
+		Cavity_3_100_Sense_ACC[0]:=BTM_Sense_3_Acc;
+		Cavity_4_100_Sense_ACC[0]:=BTM_Sense_4_Acc;
+		Cavity_5_100_Sense_ACC[0]:=BTM_Sense_5_Acc;
+		Cavity_6_100_Sense_ACC[0]:=BTM_Sense_6_Acc;
+		Cavity_7_100_Sense_ACC[0]:=BTM_Sense_7_Acc;
+		Cavity_8_100_Sense_ACC[0]:=BTM_Sense_8_Acc;
+	end_if;
+
+	if ((not (Cam_1_Result[0]) and not Inspect_1_Result[0]) and Picking_Top) or ((not (Cam_1_Result[0]) and not Inspect_2_Result[0]) and Picking_Bottom) then
+		Camera_Reject_1_total:=Camera_Reject_1_total+1;
+		Camera_Reject_100_1[0]:=1;
+	else
+		Camera_Reject_100_1[0]:=0;
+		end_if;
+	if ((not (Cam_1_Result[1]) and not Inspect_1_Result[1]) and Picking_Top) or ((not (Cam_2_Result[0]) and not Inspect_2_Result[1]) and Picking_Bottom) then
+		Camera_Reject_2_total:=Camera_Reject_2_total+1;
+		Camera_Reject_100_2[0]:=1;
+	else
+		Camera_Reject_100_2[0]:=0;
+		end_if;
+	if ((not (Cam_1_Result[2]) and not Inspect_1_Result[2]) and Picking_Top) or ((not (Cam_1_Result[2]) and not Inspect_2_Result[2]) and Picking_Bottom) then
+		Camera_Reject_3_total:=Camera_Reject_3_total+1;
+		Camera_Reject_100_3[0]:=1;
+	else
+		Camera_Reject_100_3[0]:=0;
+		end_if;
+	if ((not (Cam_1_Result[3]) and not Inspect_1_Result[3]) and Picking_Top) or ((not (Cam_1_Result[3]) and not Inspect_2_Result[3]) and Picking_Bottom) then
+		Camera_Reject_4_total:=Camera_Reject_4_total+1;
+		Camera_Reject_100_4[0]:=1;
+	else
+		Camera_Reject_100_4[0]:=0;
+		end_if;
+	if ((not (Cam_2_Result[0]) and not Inspect_1_Result[4]) and Picking_Top) or ((not (Cam_2_Result[0]) and not Inspect_2_Result[4]) and Picking_Bottom) then
+		Camera_Reject_5_total:=Camera_Reject_5_total+1;
+		Camera_Reject_100_5[0]:=1;
+	else
+		Camera_Reject_100_5[0]:=0;
+		end_if;
+	if ((not (Cam_2_Result[1]) and not Inspect_1_Result[5]) and Picking_Top) or ((not (Cam_2_Result[1]) and not Inspect_2_Result[5]) and Picking_Bottom) then
+		Camera_Reject_6_total:=Camera_Reject_6_total+1;
+		Camera_Reject_100_6[0]:=1;
+	else
+		Camera_Reject_100_6[0]:=0;
+		end_if;
+	if ((not (Cam_2_Result[2]) and not Inspect_1_Result[6]) and Picking_Top) or ((not (Cam_2_Result[2]) and not Inspect_2_Result[6]) and Picking_Bottom) then
+		Camera_Reject_7_total:=Camera_Reject_7_total+1;
+		Camera_Reject_100_7[0]:=1;
+	else
+		Camera_Reject_100_7[0]:=0;
+		end_if;
+	if ((not (Cam_2_Result[3]) and not Inspect_1_Result[7]) and Picking_Top) or ((not (Cam_2_Result[3]) and not Inspect_2_Result[7]) and Picking_Bottom) then
+		Camera_Reject_8_total:=Camera_Reject_8_total+1;
+		Camera_Reject_100_8[0]:=1;
+	else
+		Camera_Reject_100_8[0]:=0;
+		end_if;
+
+	If ((not (TP_Sense_1_Acc<Leak_Threshold and LT_TP_Sense_1_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_1_Acc<Leak_Threshold and LT_BTM_Sense_1_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_1:=Part_Leak_Total_1+1;
+		Part_Leaking_100_1[0]:=1;
+	else
+		Part_Leaking_100_1[0]:=0;
+		end_if;
+	If ((not (TP_Sense_2_Acc<Leak_Threshold and LT_TP_Sense_2_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_2_Acc<Leak_Threshold and LT_BTM_Sense_2_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_2:=Part_Leak_Total_2+1;
+		Part_Leaking_100_2[0]:=1;
+	else
+		Part_Leaking_100_2[0]:=0;
+		end_if;
+	If ((not (TP_Sense_3_Acc<Leak_Threshold and LT_TP_Sense_3_Measure[0]>30)) and Picking_Top) or ((not (BTM_Sense_3_Acc<Leak_Threshold and LT_BTM_Sense_3_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_3:=Part_Leak_Total_3+1;
+		Part_Leaking_100_3[0]:=1;
+	else
+		Part_Leaking_100_3[0]:=0;
+		end_if;
+	If ((not (TP_Sense_4_Acc<Leak_Threshold and LT_TP_Sense_4_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_4_Acc<Leak_Threshold and LT_BTM_Sense_4_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_4:=Part_Leak_Total_4+1;
+		Part_Leaking_100_4[0]:=1;
+	else
+		Part_Leaking_100_4[0]:=0;
+		end_if;
+	If ((not (TP_Sense_5_Acc<Leak_Threshold and LT_TP_Sense_5_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_5_Acc<Leak_Threshold and LT_BTM_Sense_5_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_5:=Part_Leak_Total_5+1;
+		Part_Leaking_100_5[0]:=1;
+	else
+		Part_Leaking_100_5[0]:=0;
+		end_if;
+	If ((not (TP_Sense_6_Acc<Leak_Threshold and LT_TP_Sense_6_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_6_Acc<Leak_Threshold and LT_BTM_Sense_6_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_6:=Part_Leak_Total_6+1;
+		Part_Leaking_100_6[0]:=1;
+	else
+		Part_Leaking_100_6[0]:=0;
+		end_if;
+	If ((not (TP_Sense_7_Acc<Leak_Threshold and LT_TP_Sense_7_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_7_Acc<Leak_Threshold and LT_BTM_Sense_7_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_7:=Part_Leak_Total_7+1;
+		Part_Leaking_100_7[0]:=1;
+	else
+		Part_Leaking_100_7[0]:=0;
+		end_if;
+	If ((not (TP_Sense_8_Acc<Leak_Threshold and LT_TP_Sense_8_Measure[0]>30))and Picking_Top) or ((not (BTM_Sense_8_Acc<Leak_Threshold and LT_BTM_Sense_8_Measure[0]>30)) and Picking_Bottom) then
+		Part_Leak_Total_8:=Part_Leak_Total_8+1;
+		Part_Leaking_100_8[0]:=1;
+	else
+		Part_Leaking_100_8[0]:=0;
+		end_if;
+
+
+	If (not (TP_Sense_1_Acc<Leak_Threshold and LT_TP_Sense_1_Measure[0]>10)) and Cam_1_Result[0] then
+		Part_Leaking_Top_100_1[0]:=1;
+	else
+		Part_Leaking_Top_100_1[0]:=0;
+		end_if;
+	If (not (TP_Sense_2_Acc<Leak_Threshold and LT_TP_Sense_2_Measure[0]>10)) and Cam_1_Result[1] then
+		Part_Leaking_Top_100_2[0]:=1;
+	else
+		Part_Leaking_Top_100_2[0]:=0;
+		end_if;
+	If (not (TP_Sense_3_Acc<Leak_Threshold and LT_TP_Sense_3_Measure[0]>10)) and Cam_1_Result[2] then
+		Part_Leaking_Top_100_3[0]:=1;
+	else
+		Part_Leaking_Top_100_3[0]:=0;
+		end_if;
+	If (not (TP_Sense_4_Acc<Leak_Threshold and LT_TP_Sense_4_Measure[0]>10)) and Cam_1_Result[3] then
+		Part_Leaking_Top_100_4[0]:=1;
+	else
+		Part_Leaking_Top_100_4[0]:=0;
+		end_if;
+	If (not (TP_Sense_5_Acc<Leak_Threshold and LT_TP_Sense_5_Measure[0]>10)) and Cam_2_Result[0] then
+		Part_Leaking_Top_100_5[0]:=1;
+	else
+		Part_Leaking_Top_100_5[0]:=0;
+		end_if;
+	If (not (TP_Sense_6_Acc<Leak_Threshold and LT_TP_Sense_6_Measure[0]>10)) and Cam_2_Result[1] then
+		Part_Leaking_Top_100_6[0]:=1;
+	else
+		Part_Leaking_Top_100_6[0]:=0;
+		end_if;
+	If (not (TP_Sense_7_Acc<Leak_Threshold and LT_TP_Sense_7_Measure[0]>10)) and Cam_2_Result[2] then
+		Part_Leaking_Top_100_7[0]:=1;
+	else
+		Part_Leaking_Top_100_7[0]:=0;
+		end_if;
+	If (not (TP_Sense_8_Acc<Leak_Threshold and LT_TP_Sense_8_Measure[0]>10)) and Cam_2_Result[3] then
+		Part_Leaking_Top_100_8[0]:=1;
+	else
+		Part_Leaking_Top_100_8[0]:=0;
+		end_if;
+	If (not (BTM_Sense_1_Acc<Leak_Threshold and LT_BTM_Sense_1_Measure[0]>10)) and Cam_1_Result[0] then
+		Part_Leaking_Bottom_100_1[0]:=1;
+	else
+		Part_Leaking_Bottom_100_1[0]:=0;
+		end_if;
+	If (not (BTM_Sense_2_Acc<Leak_Threshold and LT_BTM_Sense_2_Measure[0]>10)) and Cam_1_Result[1] then
+		Part_Leaking_Bottom_100_2[0]:=1;
+	else
+		Part_Leaking_Bottom_100_2[0]:=0;
+		end_if;
+	If (not (BTM_Sense_3_Acc<Leak_Threshold and LT_BTM_Sense_3_Measure[0]>10)) and Cam_1_Result[2] then
+		Part_Leaking_Bottom_100_3[0]:=1;
+	else
+		Part_Leaking_Bottom_100_3[0]:=0;
+		end_if;
+	If (not (BTM_Sense_4_Acc<Leak_Threshold and LT_BTM_Sense_4_Measure[0]>10)) and Cam_1_Result[3] then
+		Part_Leaking_Bottom_100_4[0]:=1;
+	else
+		Part_Leaking_Bottom_100_4[0]:=0;
+		end_if;
+	If (not (BTM_Sense_5_Acc<Leak_Threshold and LT_BTM_Sense_5_Measure[0]>10)) and Cam_2_Result[0] then
+		Part_Leaking_Bottom_100_5[0]:=1;
+	else
+		Part_Leaking_Bottom_100_5[0]:=0;
+		end_if;		
+	If (not (BTM_Sense_6_Acc<Leak_Threshold and LT_BTM_Sense_6_Measure[0]>10)) and Cam_2_Result[1] then
+		Part_Leaking_Bottom_100_6[0]:=1;
+	else
+		Part_Leaking_Bottom_100_6[0]:=0;
+		end_if;
+	If (not (BTM_Sense_7_Acc<Leak_Threshold and LT_BTM_Sense_7_Measure[0]>10)) and Cam_2_Result[2] then
+		Part_Leaking_Bottom_100_7[0]:=1;
+	else
+		Part_Leaking_Bottom_100_7[0]:=0;
+		end_if;
+	If (not (BTM_Sense_8_Acc<Leak_Threshold and LT_BTM_Sense_8_Measure[0]>10)) and Cam_2_Result[3] then
+		Part_Leaking_Bottom_100_8[0]:=1;
+	else
+		Part_Leaking_Bottom_100_8[0]:=0;
+		end_if;
+
+	if (Inspect_1_Result[0] and Picking_Top) or (Inspect_2_Result[0] and Picking_Bottom) then
+		Last_100_shots_1[0]:=1;
+		else
+		Last_100_shots_1[0]:=0;
+		end_if;
+	if (Inspect_1_Result[1] and Picking_Top) or (Inspect_2_Result[1] and Picking_Bottom) then
+		Last_100_shots_2[0]:=1;
+		else
+		Last_100_shots_2[0]:=0;
+		end_if;
+	if (Inspect_1_Result[2] and Picking_Top) or (Inspect_2_Result[2] and Picking_Bottom) then
+		Last_100_shots_3[0]:=1;
+		else
+		Last_100_shots_3[0]:=0;
+		end_if;
+	if (Inspect_1_Result[3] and Picking_Top) or (Inspect_2_Result[3] and Picking_Bottom) then
+		Last_100_shots_4[0]:=1;
+		else
+		Last_100_shots_4[0]:=0;
+		end_if;
+	if (Inspect_1_Result[4] and Picking_Top) or (Inspect_2_Result[4] and Picking_Bottom) then
+		Last_100_shots_5[0]:=1;
+		else
+		Last_100_shots_5[0]:=0;
+		end_if;
+	if (Inspect_1_Result[5] and Picking_Top) or (Inspect_2_Result[5] and Picking_Bottom) then
+		Last_100_shots_6[0]:=1;
+		else
+		Last_100_shots_6[0]:=0;
+		end_if;
+	if (Inspect_1_Result[6] and Picking_Top) or (Inspect_2_Result[6] and Picking_Bottom) then
+		Last_100_shots_7[0]:=1;
+		else
+		Last_100_shots_7[0]:=0;
+		end_if;
+	if (Inspect_1_Result[7] and Picking_Top) or (Inspect_2_Result[7] and Picking_Bottom) then
+		Last_100_shots_8[0]:=1;
+		else
+		Last_100_shots_8[0]:=0;
+		end_if;
+
+	for j:=0 to 99 by 1 do//Total passes for last 100 shots by cavity
+		if Last_100_shots_1[99-j] then
+			Last_100_total_1:=Last_100_total_1+1;
+			end_if;
+		if Last_100_shots_2[99-j] then
+			Last_100_total_2:=Last_100_total_2+1;
+			end_if;
+		if Last_100_shots_3[99-j] then
+			Last_100_total_3:=Last_100_total_3+1;
+			end_if;
+		if Last_100_shots_4[99-j] then
+			Last_100_total_4:=Last_100_total_4+1;
+			end_if;
+		if Last_100_shots_5[99-j] then
+			Last_100_total_5:=Last_100_total_5+1;
+			end_if;
+		if Last_100_shots_6[99-j] then
+			Last_100_total_6:=Last_100_total_6+1;
+			end_if;
+		if Last_100_shots_7[99-j] then
+			Last_100_total_7:=Last_100_total_7+1;
+			end_if;
+		if Last_100_shots_8[99-j] then
+			Last_100_total_8:=Last_100_total_8+1;
+			end_if;
+		if Part_Leaking_100_1[99-j] then
+			Part_Leaked_total_1:=Part_Leaked_total_1+1;
+			end_if;
+		if Part_Leaking_100_2[99-j] then
+			Part_Leaked_total_2:=Part_Leaked_total_2+1;
+			end_if;
+		if Part_Leaking_100_3[99-j] then
+			Part_Leaked_total_3:=Part_Leaked_total_3+1;
+			end_if;
+		if Part_Leaking_100_4[99-j] then
+			Part_Leaked_total_4:=Part_Leaked_total_4+1;
+			end_if;
+		if Part_Leaking_100_5[99-j] then
+			Part_Leaked_total_5:=Part_Leaked_total_5+1;
+			end_if;
+		if Part_Leaking_100_6[99-j] then
+			Part_Leaked_total_6:=Part_Leaked_total_6+1;
+			end_if;
+		if Part_Leaking_100_7[99-j] then
+			Part_Leaked_total_7:=Part_Leaked_total_7+1;
+			end_if;
+		if Part_Leaking_100_8[99-j] then
+			Part_Leaked_total_8:=Part_Leaked_total_8+1;
+			end_if;
+		if Camera_Reject_100_1[99-j] then
+			Camera_Reject_total_1:=Camera_Reject_total_1+1;
+			end_if;
+		if Camera_Reject_100_2[99-j] then
+			Camera_Reject_total_2:=Camera_Reject_total_2+1;
+			end_if;
+		if Camera_Reject_100_3[99-j] then
+			Camera_Reject_total_3:=Camera_Reject_total_3+1;
+			end_if;
+		if Camera_Reject_100_4[99-j] then
+			Camera_Reject_total_4:=Camera_Reject_total_4+1;
+			end_if;
+		if Camera_Reject_100_5[99-j] then
+			Camera_Reject_total_5:=Camera_Reject_total_5+1;
+			end_if;
+		if Camera_Reject_100_6[99-j] then
+			Camera_Reject_total_6:=Camera_Reject_total_6+1;
+			end_if;
+		if Camera_Reject_100_7[99-j] then
+			Camera_Reject_total_7:=Camera_Reject_total_7+1;
+			end_if;
+		if Camera_Reject_100_8[99-j] then
+			Camera_Reject_total_8:=Camera_Reject_total_8+1;
+			end_if;
+		end_for;	
+
+	for k:=0 to 500 do
+		if Part_Leaking_Bottom_100_1[k] then
+			Part_Leaking_Bottom_100_Total[0]:=Part_Leaking_Bottom_100_Total[0]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_2[k] then
+			Part_Leaking_Bottom_100_Total[1]:=Part_Leaking_Bottom_100_Total[1]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_3[k] then
+			Part_Leaking_Bottom_100_Total[2]:=Part_Leaking_Bottom_100_Total[2]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_4[k] then
+			Part_Leaking_Bottom_100_Total[3]:=Part_Leaking_Bottom_100_Total[3]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_5[k] then
+			Part_Leaking_Bottom_100_Total[4]:=Part_Leaking_Bottom_100_Total[4]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_6[k] then
+			Part_Leaking_Bottom_100_Total[5]:=Part_Leaking_Bottom_100_Total[5]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_7[k] then
+			Part_Leaking_Bottom_100_Total[6]:=Part_Leaking_Bottom_100_Total[6]+1;
+			end_if;
+		if Part_Leaking_Bottom_100_8[k] then
+			Part_Leaking_Bottom_100_Total[7]:=Part_Leaking_Bottom_100_Total[7]+1;
+			end_if;
+		if Part_Leaking_Top_100_1[k] then
+			Part_Leaking_Top_100_Total[0]:=Part_Leaking_Top_100_Total[0]+1;
+			end_if;
+		if Part_Leaking_Top_100_2[k] then
+			Part_Leaking_Top_100_Total[1]:=Part_Leaking_Top_100_Total[1]+1;
+			end_if;
+		if Part_Leaking_Top_100_3[k] then
+			Part_Leaking_Top_100_Total[2]:=Part_Leaking_Top_100_Total[2]+1;
+			end_if;
+		if Part_Leaking_Top_100_4[k] then
+			Part_Leaking_Top_100_Total[3]:=Part_Leaking_Top_100_Total[3]+1;
+			end_if;
+		if Part_Leaking_Top_100_5[k] then
+			Part_Leaking_Top_100_Total[4]:=Part_Leaking_Top_100_Total[4]+1;
+			end_if;
+		if Part_Leaking_Top_100_6[k] then
+			Part_Leaking_Top_100_Total[5]:=Part_Leaking_Top_100_Total[5]+1;
+			end_if;
+		if Part_Leaking_Top_100_7[k] then
+			Part_Leaking_Top_100_Total[6]:=Part_Leaking_Top_100_Total[6]+1;
+			end_if;
+		if Part_Leaking_Top_100_8[k] then
+			Part_Leaking_Top_100_Total[7]:=Part_Leaking_Top_100_Total[7]+1;
+			end_if;
+	end_for;
+
+	if ((Part_Leaking_Top_100_Total[0])>Last_100_Failure_Limit) then
+		Leaking_vis[0]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[1])>Last_100_Failure_Limit) then
+		Leaking_vis[1]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[2])>Last_100_Failure_Limit) then
+		Leaking_vis[2]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[3])>Last_100_Failure_Limit) then
+		Leaking_vis[3]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[4])>Last_100_Failure_Limit) then
+		Leaking_vis[4]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[5])>Last_100_Failure_Limit) then
+		Leaking_vis[5]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[6])>Last_100_Failure_Limit) then
+		Leaking_vis[6]:=1;
+		end_if;
+	if ((Part_Leaking_Top_100_Total[7])>Last_100_Failure_Limit) then
+		Leaking_vis[7]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[0])>Last_100_Failure_Limit) then
+		Leaking_vis[8]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[1])>Last_100_Failure_Limit) then
+		Leaking_vis[9]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[2])>Last_100_Failure_Limit) then
+		Leaking_vis[10]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[3])>Last_100_Failure_Limit) then
+		Leaking_vis[11]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[4])>Last_100_Failure_Limit) then
+		Leaking_vis[12]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[5])>Last_100_Failure_Limit) then
+		Leaking_vis[13]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[6])>Last_100_Failure_Limit) then
+		Leaking_vis[14]:=1;
+		end_if;
+	if ((Part_Leaking_Bottom_100_Total[7])>Last_100_Failure_Limit) then
+		Leaking_vis[15]:=1;
+		end_if;
+
+	//Track last three shots to see if there have been 3 consecutive failures
+	if Last_100_shots_1[0] or Last_100_shots_1[1] or Last_100_shots_1[2] then
+		Consecutive_Failure[0]:=0;
+	else
+		Consecutive_Failure[0]:=1;
+		end_if;
+	if Last_100_shots_2[0] or Last_100_shots_2[1] or Last_100_shots_2[2] then
+		Consecutive_Failure[1]:=0;
+	else
+		Consecutive_Failure[1]:=1;
+		end_if;
+	if Last_100_shots_3[0] or Last_100_shots_3[1] or Last_100_shots_3[2] then
+		Consecutive_Failure[2]:=0;
+	else
+		Consecutive_Failure[2]:=1;
+		end_if;
+	if Last_100_shots_4[0] or Last_100_shots_4[1] or Last_100_shots_4[2] then
+		Consecutive_Failure[3]:=0;
+	else
+		Consecutive_Failure[3]:=1;
+		end_if;
+	if Last_100_shots_5[0] or Last_100_shots_5[1] or Last_100_shots_5[2] then
+		Consecutive_Failure[4]:=0;
+	else
+		Consecutive_Failure[4]:=1;
+		end_if;
+	if Last_100_shots_6[0] or Last_100_shots_6[1] or Last_100_shots_6[2] then
+		Consecutive_Failure[5]:=0;
+	else
+		Consecutive_Failure[5]:=1;
+		end_if;
+	if Last_100_shots_7[0] or Last_100_shots_7[1] or Last_100_shots_7[2] then
+		Consecutive_Failure[6]:=0;
+	else
+		Consecutive_Failure[6]:=1;
+		end_if;
+	if Last_100_shots_8[0] or Last_100_shots_8[1] or Last_100_shots_8[2] then
+		Consecutive_Failure[7]:=0;
+	else
+		Consecutive_Failure[7]:=1;
+		end_if;
+	end_if;
+
+if Rejects_Dropped and not UR_DO07 then
+	Flow_LT_TP_Inspect:=7;
+	end_if;
+7://drop camera rejects
+if UR_DO07 and not UR_DI02 then
+	UR_CAV_VAC_1:=  ((Inspect_1_Result[0] and Picking_Top) or (Inspect_2_Result[0] and Picking_Bottom));
+	UR_CAV_VAC_2:=  ((Inspect_1_Result[1] and Picking_Top) or (Inspect_2_Result[1] and Picking_Bottom));
+	UR_CAV_VAC_7:=  ((Inspect_1_Result[6] and Picking_Top) or (Inspect_2_Result[6] and Picking_Bottom));
+	UR_CAV_VAC_8:=  ((Inspect_1_Result[7] and Picking_Top) or (Inspect_2_Result[7] and Picking_Bottom));
+	UR_CAV_VAC_5:=  ((Inspect_1_Result[4] and Picking_Top) or (Inspect_2_Result[4] and Picking_Bottom));
+	UR_CAV_VAC_6:=  ((Inspect_1_Result[5] and Picking_Top) or (Inspect_2_Result[5] and Picking_Bottom));
+	UR_CAV_VAC_3:=  ((Inspect_1_Result[2] and Picking_Top) or (Inspect_2_Result[2] and Picking_Bottom));
+	UR_CAV_VAC_4:=  ((Inspect_1_Result[3] and Picking_Top) or (Inspect_2_Result[3] and Picking_Bottom));
+	cam_reject_drop:=1;
+	end_if;
+
+if (cam_reject_drop and (not UR_DO07)) or UR_DI02 then
+	Flow_LT_TP_Inspect:=8;
+	cam_reject_drop:=0;
+	end_if;
+8://Communicate to UR pass/fail status during dropoff
+if UR_DO07 and not UR_DI02 then
+	if UR_CAV_VAC_1 then
+		Top_Count[0]:=Top_Count[0]+1;
+		UR_CAV_VAC_1:= 0;
+		end_if;
+	if UR_CAV_VAC_2 then
+		Top_Count[1]:=Top_Count[1]+1;
+		UR_CAV_VAC_2:= 0;
+		end_if;
+	if UR_CAV_VAC_7 then
+		Top_Count[2]:=Top_Count[2]+1;
+		UR_CAV_VAC_7:= 0;
+		end_if;
+	if UR_CAV_VAC_8 then
+		Top_Count[3]:=Top_Count[3]+1;
+		UR_CAV_VAC_8:= 0;
+		end_if;
+	first_drop:=1;
+	end_if;
+
+if (first_drop and (not UR_DO07)) or UR_DI02 then
+	Flow_LT_TP_Inspect:=9;
+	end_if;
+
+9://Second good part drop site
+if UR_DO07 and not UR_DI02 then
+	if UR_CAV_VAC_5 then
+		Top_Count[4]:=Top_Count[4]+1;
+		UR_CAV_VAC_5:= 0;
+		end_if;
+	if UR_CAV_VAC_6 then
+		Top_Count[5]:=Top_Count[5]+1;
+		UR_CAV_VAC_6:= 0;
+		end_if;
+	if UR_CAV_VAC_3 then
+		Top_Count[6]:=Top_Count[6]+1;
+		UR_CAV_VAC_3:= 0;
+		end_if;
+	if UR_CAV_VAC_4 then
+		Top_Count[7]:=Top_Count[7]+1;
+		UR_CAV_VAC_4:= 0;
+		end_if;
+	first_drop:=0;
+	end_if;
+
+if not (first_drop or UR_DO07) or UR_DI02 then
+	Picking_Top:=0;
+	Picking_Bottom:=0;
+	Flow_LT_TP_Inspect:=1;
+	end_if;
+
+10://GO here when quality shot is needed
+if UR_DO07 then
+	UR_CAV_VAC_1:=0;
+	UR_CAV_VAC_2:=0;
+	UR_CAV_VAC_3:=0;
+	UR_CAV_VAC_4:=0;
+	UR_CAV_VAC_5:=0;
+	UR_CAV_VAC_6:=0;
+	UR_CAV_VAC_7:=0;
+	UR_CAV_VAC_8:=0;
+	UR_DI07:=0;
+	Picking_Top:=0;
+	Picking_Bottom:=0;
+	Flow_LT_TP_Inspect:=1;
+	end_if;
+
+end_case;
